@@ -1,0 +1,16 @@
+{
+  "name": "code-2",
+  "version": "1.0.0",
+  "description": "A fun Backend",
+  "author": "Akshat Saxena",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.8.0"
+  }
+}
