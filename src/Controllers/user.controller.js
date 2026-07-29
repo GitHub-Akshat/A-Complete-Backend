@@ -2,6 +2,7 @@ import { json } from "express";
 import { User } from "../Models/user.model.js";
 import uploadOnCloudinary from "../Utilis/cloudinary.js";
 import jwt from 'jsonwebtoken';
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshTokens = async (userId) => {
     try {
@@ -21,7 +22,6 @@ const generateAccessAndRefreshTokens = async (userId) => {
         })
     }
 }
-
 
 const registerUser = async (req, res, next) => {
     // get user details from frontend
@@ -293,8 +293,8 @@ const updateUserDetails = async (req, res, next) => {
         }
 
         const updateData = {}
-        if(fullName) updateData.fullName = fullName;
-        if(email) updateData.email = email;
+        if (fullName) updateData.fullName = fullName;
+        if (email) updateData.email = email;
         const user = await User.findByIdAndUpdate(req.user?._id,
             {
                 // $set: {
@@ -303,10 +303,10 @@ const updateUserDetails = async (req, res, next) => {
                 // }
 
                 // because updation can only be name or email also not both necessarly
-                $set : updateData
+                $set: updateData
             },
             {
-                returnDocument : "after"
+                returnDocument: "after"
             }
         ).select("-password -refreshToken")
 
@@ -320,14 +320,13 @@ const updateUserDetails = async (req, res, next) => {
     }
 }
 
-const updateUserAvatarImage = async (req, res, next) =>{
+const updateUserAvatarImage = async (req, res, next) => {
     try {
 
         const avatorImageLocalPath = req.file?.avatar.path
-        if(!avatorImageLocalPath)
-        {
+        if (!avatorImageLocalPath) {
             return res.status(400).json({
-                message : "Avatar Image not Found !!"
+                message: "Avatar Image not Found !!"
             })
         }
 
@@ -335,17 +334,17 @@ const updateUserAvatarImage = async (req, res, next) =>{
 
         const user = await User.findByIdAndUpdate(req.user._id,
             {
-                $set : {
-                    avatar : avatar.url
+                $set: {
+                    avatar: avatar.url
                 }
             },
             {
-                returnDocument : "after"
+                returnDocument: "after"
             }
         ).select("-password -refreshToken")
 
         return res.status(200).json({
-            message : "Avatar Image Updated Successfully !!",
+            message: "Avatar Image Updated Successfully !!",
             user
         })
 
@@ -355,13 +354,12 @@ const updateUserAvatarImage = async (req, res, next) =>{
     }
 }
 
-const updateUserCoverImage = async (req, res, next) =>{
+const updateUserCoverImage = async (req, res, next) => {
     try {
         const coverImageLocalFilePath = req.file?.coverImage.path
-        if(!coverImageLocalFilePath)
-        {
+        if (!coverImageLocalFilePath) {
             return res.status(400).json({
-                message : "Cover Image Not Found"
+                message: "Cover Image Not Found"
             })
         }
 
@@ -369,17 +367,17 @@ const updateUserCoverImage = async (req, res, next) =>{
 
         const user = await User.findByIdAndUpdate(req.user?._id,
             {
-                $set : {
-                    coverImage : coverImage.url
+                $set: {
+                    coverImage: coverImage.url
                 }
             },
             {
-                returnDocument : "after"
+                returnDocument: "after"
             }
         ).select("-password -refreshToken")
 
         return res.status(200).json({
-            message : "CoverImage Updated Successfully !! ",
+            message: "CoverImage Updated Successfully !! ",
             user
         })
 
@@ -389,4 +387,144 @@ const updateUserCoverImage = async (req, res, next) =>{
     }
 }
 
-export { registerUser, loginUser, logOutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser, updateUserDetails ,updateUserCoverImage ,updateUserAvatarImage };
+const getUserProfileDetails = async (req, res, next) => {
+    try {
+
+        const { username } = req.params;
+
+        if (!username) {
+            return res.status(400).json({
+                message: "Username is Missing !!"
+            })
+        }
+
+        const channel = await User.aggregate([
+            {
+                $match: {
+                    username: username?.toLowerCase()
+                }
+            },
+            {
+                $lookup: {
+                    from: "subscriptions",
+                    foreignField: "channel",
+                    localField: "_id",
+                    as: "Subscribers"
+                }
+            },
+            {
+                $lookup: {
+                    from: "subscriptions",
+                    foreignField: "subscriber",
+                    localField: "_id",
+                    as: "subscribedTo"
+                }
+            },
+            {
+                $addFields: {
+                    subscriberCount: {
+                        $size: "$Subscribers"
+                    },
+                    subscribedToCount: {
+                        $size: "$subscribedTo"
+                    },
+                    isSubscribed: {
+                        $cond: {
+                            if: { $in: [req.user?._id, "$Subscribers.subscriber"] },
+                            then: true,
+                            else: false
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    username: 1,
+                    fullName: 1,
+                    email: 1,
+                    avatar: 1,
+                    coverImage: 1,
+                    subscriberCount: 1,
+                    subscribedToCount: 1,
+                    isSubscribed: 1
+                }
+            }
+        ])
+
+        if (!channel?.length) {
+            return res.status(400).json({
+                message: "No Channel Found/ Does Not Exists"
+            })
+        }
+
+        return res.status(200).json({
+            message: "User Channel Data Fetched Successfully",
+            data: channel[0]
+        })
+
+    } catch (error) {
+        // console.log(error);
+        next(error);
+    }
+}
+
+const getWatchHistory = async (req, res, next) => {
+    try {
+        const user = await User.aggregate([
+            {
+                $match: {
+                    _id: new mongoose.Types.ObjectId(req.user._id)
+                }
+            },
+            {
+                $lookup: {
+                    from: "videos",
+                    localField: "watchHistory",
+                    foreignField: "_id",
+                    as: "watchHistory",
+                    pipeline: [
+                        {
+                            $lookup: {
+                                from: "users",
+                                foreignField: "_id",
+                                localField: "owner",
+                                as: "owner",
+                                pipeline: [
+                                    {
+                                        $project: {
+                                            fullName: 1,
+                                            username: 1,
+                                            avatar: 1
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            $addFields: {
+                                owner: {
+                                    $first: "owner"
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            {},
+            {}
+        ])
+
+        return res.status(200).json({
+            message : "Watch History Fetched Successfully",
+            data : user[0].watchHistory
+        })
+    } catch (error) {
+        // console.log(error);
+        next(error);
+    }
+}
+
+export {
+    registerUser, loginUser, logOutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser, updateUserDetails,
+    updateUserCoverImage, updateUserAvatarImage, getUserProfileDetails, getWatchHistory
+};  
