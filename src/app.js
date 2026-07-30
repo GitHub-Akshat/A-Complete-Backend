@@ -12,8 +12,25 @@ app.use(cookieParser())
 
 // importing router
 import userRouter from "./Routes/user.route.js";
+import videoRouter from "./Routes/video.route.js"
+import tweetRouter from "./Routes/tweet.route.js"
+import subscriptionRouter from "./Routes/subscription.route.js"
+import playlistRouter from "./Routes/playlist.route.js"
+import likeRouter from "./Routes/like.route.js"
+import healthcheckRouter from "./Routes/healthcheck.route.js"
+import dashboardRouter from "./Routes/dashboard.route.js";
+import commentRouter from "./Routes/comment.route.js"
 
 app.use("/api/v1/user", userRouter)
+app.use("/api/v1/healthcheck", healthcheckRouter)
+app.use("/api/v1/tweets", tweetRouter)
+app.use("/api/v1/subscriptions", subscriptionRouter)
+app.use("/api/v1/videos", videoRouter)
+app.use("/api/v1/comments", commentRouter)
+app.use("/api/v1/likes", likeRouter)
+app.use("/api/v1/playlist", playlistRouter)
+app.use("/api/v1/dashboard", dashboardRouter)
+
 
 app.use((err, req, res, next) => {
     console.error(err);
